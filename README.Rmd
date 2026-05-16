@@ -1,0 +1,376 @@
+---
+title: "Attention Hypothesis in JOD and JOF"
+#author: "Johannes Titz"
+date: "2026-05-16"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prepare
+
+Install librarian if you do not have it yet or use some other package manager.
+
+```{r}
+library(librarian)
+shelf(readr, dplyr, MuMIn, sjPlot, lme4, tidyverse, xtable, ggplot2, latex2exp,
+      Unicode, extrafont)
+```
+
+## Winkler
+
+This csv only contains only total duration as iv and dv.
+
+```{r}
+w <- read_csv2("winkler.csv")
+# uniqe exp id for mixed model
+w$exp_id <- paste(w$manuscript, w$experiment)
+```
+
+### JOF
+
+```{r}
+
+mdl <- lmer(value ~ h + h:stim_type + h:att_type + h:stim_type:att_type + d+d:att_type + d:stim_type + d:stim_type:att_type + (1 +h+d| exp_id/vpnr), 
+            data = w,
+            subset = w$av == "jof")
+summary(mdl)
+r.squaredGLMM(mdl)
+tab_model(mdl, show.r2 = F, digits = 3, digits.re = 3)
+```
+
+### JOD
+
+```{r}
+mdl <- lmer(value ~ h + h:stim_type + h:att_type + h:stim_type:att_type + d+d:att_type + d:stim_type + d:stim_type:att_type + (1 +h+d | exp_id/vpnr), 
+            data = w,
+            subset = w$av == "jod")
+summary(mdl)
+r.squaredGLMM(mdl)
+tab_model(mdl, digits = 3, digits.re = 3)
+```
+
+## Betsch
+
+Helpers for bootstrap regression:
+
+```{r}
+one_bootstrap <- function(b) {
+  b$dv_boot <- rnorm(nrow(b), b$dv, b$sd / sqrt(b$n))
+  fits <- lmList(dv_boot ~ f + d|condition2, data = b)
+  return(coef(fits))
+}
+
+bootstrap <- function(b, n) {
+  list <- lapply(1:n, function(x) one_bootstrap(b))
+  df <- do.call(rbind.data.frame, list)
+  df$condition2 = gsub("[[:digit:]]+", "", rownames(df))
+  df %>% 
+    group_by(condition2) %>% 
+    summarize_at(c("f", "d"),
+                 list(mean = mean, se = sd,#), #)
+                      `95%-LL` = function(x) quantile(x, 0.025),
+                      `95%-UL` = function(x) quantile(x, 0.975)))
+}
+
+compare_betas <- function(beta1, se1, beta2, se2) {
+  z <- (beta1 - beta2) / sqrt(se1^2 + se2^2)
+  p <- 2 * (1 - pnorm(abs(z)))
+  return(c(z = z, p = p))
+}
+
+# Example
+compare_betas(beta1 = 0.5, se1 = 0.1, beta2 = 0.2, se2 = 0.15)
+```
+
+## JOD
+
+```{r}
+set.seed(899)
+b <- read.csv("betsch2010.csv")
+# exp1 is already in winkler (condition none)
+
+b <- filter(b, jod_type != "single", dv_type == "jod",
+            condition != "grand_mean", condition != "mean", 
+            condition != "mean_after",
+            condition != "mean_before", condition != "none")
+
+b <- mutate(b, condition2 = gsub("_before|_after|_instr", "", condition))
+b <- mutate(b, condition2 = gsub("_before|_after", "", condition))
+
+lm <- lmList(dv ~ f + d|condition2, data = b)
+coef(lm)
+
+boot <- bootstrap(b, 1000)
+
+purrr:::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[2], boot$f_se[2], x, y))
+purrr:::map2(boot$d_mean, boot$d_se, \(x, y) compare_betas(boot$d_mean[4], boot$d_se[4], x, y))
+
+boot <- boot %>%
+    rename(condition = condition2) %>%
+    select(-f_se, -d_se)
+
+boot_jod <- boot
+saveRDS(boot_jod, "boot_betsch_jod.RData")
+
+boot_jod
+print(xtable(boot, type = "latex", digits = 3), file = "betsch_jod.tex")
+#system("cp betsch_jod.tex ~/2020/paper2_diss/tables/")
+```
+
+
+## JOF
+
+```{r}
+b <- read.csv("betsch2010.csv")
+# exp1 is already in winkler (condition none)
+
+b <- filter(b, jod_type != "single", dv_type == "jof",
+            condition != "grand_mean", condition != "mean", condition != "mean_after",
+            condition != "mean_before", condition != "none")
+
+b <- mutate(b, condition2 = gsub("_before|_after|_instr", "", condition))
+b <- mutate(b, condition2 = gsub("_before|_after", "", condition))
+
+lm <- lmList(dv ~ f + d|condition2, data = b)
+coef(lm)
+
+boot <- bootstrap(b, 1000)
+boot
+
+purrr:::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[1], boot$f_se[1], x, y))
+purrr:::map2(boot$d_mean, boot$d_se, \(x, y) compare_betas(boot$d_mean[1], boot$d_se[1], x, y))
+
+boot <- boot %>%
+    rename(condition = condition2) %>%
+    select(-f_se, -d_se)
+
+print(xtable(boot, type = "latex", digits = 3), file = "betsch_jof.tex")
+#system("cp betsch_jof.tex ~/2020/paper2_diss/tables/")
+
+boot_jof <- boot
+boot_jof
+saveRDS(boot_jof, "boot_betsch_jof.RData")
+```
+
+## Attention functions
+
+Helpers:
+
+```{r}
+loadfonts()
+times <- u_char_inspect(u_char_from_name("MULTIPLICATION SIGN"))["Char"]
+
+create_attention <- function(duration, attention_high, attention_low, time_drop) {
+  first <- rep(attention_high, time_drop)
+  second <- rep(attention_low, duration - time_drop)
+  
+  data.frame(
+    a = c(first, second),
+    t = 0:(duration - 1)
+  )
+}
+
+plot_attention <- function(res_df, base_theme = theme_bw()) {
+  res_df$a <- pmax(res_df$a, 0)
+  res_step <- res_df |>
+    dplyr::group_by(.id) |>
+    dplyr::arrange(t, .by_group = TRUE) |>
+    dplyr::reframe(
+      t = c(t, max(t) + 1),
+      a = c(a, dplyr::last(a))
+    )
+  res_poly <- res_df |>
+    dplyr::group_by(.id) |>
+    dplyr::arrange(t, .by_group = TRUE) |>
+    dplyr::reframe(
+      x = c(
+        0,
+        as.vector(rbind(t, t + 1)),
+        max(t) + 1,
+        0
+      ),
+      y = c(
+        0,
+        as.vector(rbind(a, a)),
+        0,
+        0
+      )
+    )
+  y_max <- max(res_df$a) * 1.05
+  ggplot(res_df, aes(t, a)) +
+    
+    geom_polygon(
+      data = res_poly,
+      aes(x = x, y = y, group = .id),
+      fill = "grey65",
+      alpha = 0.85,
+      colour = NA,
+      inherit.aes = FALSE
+    ) +
+    
+    geom_step(
+      data = res_step,
+      aes(t, a, group = .id),
+      linewidth = 0.5,
+      direction = "hv",
+      colour = "grey35",
+      inherit.aes = FALSE
+    ) +
+    
+    facet_wrap(~ .id, ncol = 2, dir = "v") +
+    
+    scale_y_continuous(
+      "Processing Intensity [au]",
+      expand = c(0, 0),
+      limits = c(0, y_max)
+    ) +
+    
+    scale_x_continuous(
+      "Time step [s]",
+      breaks = 0:8,
+      limits = c(0, 8),
+      expand = c(0, 0)
+    ) +
+    
+    base_theme +
+    
+    theme(
+      legend.position = "none",
+      strip.background = element_rect(
+        colour = "black",
+        fill = "white"
+      ),
+      panel.grid = element_blank(),
+      
+      panel.spacing.y = unit(1.1, "lines"),
+      panel.spacing.x = unit(0.8, "lines")
+    )
+}
+```
+
+
+### Winkler
+
+```{r}
+res <- Map(
+  create_attention,
+  duration = 8,
+  attention_high = c(0.599 - c(0, 0.143, 0.018, 0.143 + 0.018 + 0.047)) + 0.007,
+  attention_low = 0.007 + c(0, 0.003, -0.005, -0.002),
+  time_drop = 1
+)
+
+names(res) <- paste0("JOF:", c("image, high", "word, high", "image, low", "word, low"))
+res_df <- plyr::ldply(res, "data.frame")
+
+b2 <- c(0.845 + c(0, -0.323, -0.081, -0.323 - 0.081 + 0.120))
+b1 <- c(0.126 + c(0, -0.01, -0.019, -0.01 - 0.019 - 0.035))
+
+b1 / 0.126
+(b1 + b2) / (0.845 + 0.126)
+
+res <- Map(
+  create_attention,
+  duration = 8,
+  attention_high = b1 + b2,
+  attention_low = b1,
+  time_drop = 1
+)
+
+names(res) <- paste0("JOD:", c("image, high", "word, high", "image, low", "word, low"))
+res_df_jod <- plyr::ldply(res, "data.frame")
+
+res_df <- dplyr::bind_rows(res_df, res_df_jod)
+
+p2 <- plot_attention(res_df)
+
+p2
+
+pdf("plots/winkler.pdf", width = 8, height = 9)
+p2
+dev.off()
+```
+
+### Betsch
+
+```{r}
+all <- dplyr::bind_rows(boot_jod, boot_jof, .id = "dv")
+
+fac <- factor(all$condition)
+fac <- forcats::fct_reorder(fac, all$f_mean, .fun = mean)
+fac <- forcats::fct_recode(
+  fac,
+  "event instruction" = "event_instr",
+  picture = "pic",
+  "picture context" = "pic-context",
+  "run instruction" = "run_instr",
+  "event instruction" = "event_instr"
+)
+
+all$condition <- fac
+all$dv <- ifelse(all$dv == 1, "JOD", "JOF")
+
+res <- Map(
+  create_attention,
+  duration = 8,
+  attention_high = all$f_mean + all$d_mean,
+  attention_low = all$d_mean,
+  time_drop = 1
+)
+
+names(res) <- paste0(all$dv, ":", all$condition)
+res_df <- plyr::ldply(res, "data.frame")
+
+p_all <- plot_attention(res_df, base_theme = theme_bw())
+
+p_all
+
+pdf("plots/attention_betsch.pdf", width = 8, height = 11)
+p_all
+dev.off()
+```
+
+### Peters
+
+```{r}
+# peters 2022 ----
+
+b2 <- c(0.65 + c(0, -0.02, 0.41, 0.3, 0.65, -0.18))
+b1 <- c(0.12 + c(0, 0.15, 0.09, 0.17, 0.09, 0.1))
+
+b2jof <- c(0.61 + c(0, 0.13, 0.08, 0.16, 0.27, -0.19))
+b1jof <- c(0.02 + c(0, 0.01, 0.01, 0.01, 0.02, 0.03))
+
+res <- Map(
+  create_attention,
+  duration = 8,
+  attention_high = c(b1 + b2, b2jof + b1jof),
+  attention_low = c(b1, b1jof),
+  time_drop = 1
+)
+
+names(res) <- paste0(
+  rep(c("JOD:", "JOF:"), each = 6),
+  c("word, no fist",
+    "NOUN, fist",
+    "NOUN, no fist",
+    "BOSS, fist",
+    "BOSS, no fist",
+    "word, fist"
+  )
+)
+
+res_df <- plyr::ldply(res, "data.frame")
+
+p2 <- plot_attention(res_df)
+
+p2
+
+pdf("plots/attention_peters.pdf", width = 8, height = 11)
+p2
+dev.off()
+```
+
