@@ -21,11 +21,11 @@ shelf(readr, dplyr, MuMIn, sjPlot, lme4, tidyverse, xtable, ggplot2, latex2exp,
 
 ## Winkler
 
-This csv only contains only total duration as iv and dv.
+This csv contains only total duration as iv and dv.
 
 ```{r}
 w <- read_csv2("winkler.csv")
-# uniqe exp id for mixed model
+# unique exp id for mixed model
 w$exp_id <- paste(w$manuscript, w$experiment)
 ```
 
@@ -105,8 +105,8 @@ coef(lm)
 
 boot <- bootstrap(b, 1000)
 
-purrr:::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[2], boot$f_se[2], x, y))
-purrr:::map2(boot$d_mean, boot$d_se, \(x, y) compare_betas(boot$d_mean[4], boot$d_se[4], x, y))
+purrr::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[2], boot$f_se[2], x, y))
+purrr::map2(boot$d_mean, boot$d_se, \(x, y) compare_betas(boot$d_mean[4], boot$d_se[4], x, y))
 
 boot <- boot %>%
     rename(condition = condition2) %>%
@@ -117,7 +117,6 @@ saveRDS(boot_jod, "boot_betsch_jod.RData")
 
 boot_jod
 print(xtable(boot, type = "latex", digits = 3), file = "betsch_jod.tex")
-#system("cp betsch_jod.tex ~/2020/paper2_diss/tables/")
 ```
 
 
@@ -148,7 +147,6 @@ boot <- boot %>%
     select(-f_se, -d_se)
 
 print(xtable(boot, type = "latex", digits = 3), file = "betsch_jof.tex")
-#system("cp betsch_jof.tex ~/2020/paper2_diss/tables/")
 
 boot_jof <- boot
 boot_jof
@@ -254,7 +252,7 @@ plot_attention <- function(res_df, base_theme = theme_bw()) {
 
 ### Winkler
 
-```{r}
+```{r, fig.height=9, fig.width=8}
 res <- Map(
   create_attention,
   duration = 8,
@@ -296,15 +294,14 @@ dev.off()
 
 ### Betsch
 
-```{r}
+```{r, fig.height=11, fig.width=8}
 all <- dplyr::bind_rows(boot_jod, boot_jof, .id = "dv")
 
 fac <- factor(all$condition)
 fac <- forcats::fct_reorder(fac, all$f_mean, .fun = mean)
 fac <- forcats::fct_recode(
   fac,
-  "event instruction" = "event_instr",
-  picture = "pic",
+  "picture" = "pic",
   "picture context" = "pic-context",
   "run instruction" = "run_instr",
   "event instruction" = "event_instr"
@@ -324,7 +321,7 @@ res <- Map(
 names(res) <- paste0(all$dv, ":", all$condition)
 res_df <- plyr::ldply(res, "data.frame")
 
-p_all <- plot_attention(res_df, base_theme = theme_bw())
+p_all <- plot_attention(res_df)
 
 p_all
 
@@ -335,7 +332,7 @@ dev.off()
 
 ### Peters
 
-```{r}
+```{r, fig.height=11, fig.width=8}
 # peters 2022 ----
 
 b2 <- c(0.65 + c(0, -0.02, 0.41, 0.3, 0.65, -0.18))

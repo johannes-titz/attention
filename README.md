@@ -15,7 +15,7 @@ shelf(readr, dplyr, MuMIn, sjPlot, lme4, tidyverse, xtable, ggplot2, latex2exp,
 
 ## Winkler
 
-This csv only contains only total duration as iv and dv.
+This csv contains only total duration as iv and dv.
 
 ``` r
 w <- read_csv2("winkler.csv")
@@ -24,7 +24,7 @@ w <- read_csv2("winkler.csv")
     ## ℹ Using "','" as decimal and "'.'" as grouping mark. Use `read_delim()` for more control.
 
     ## Rows: 8658 Columns: 17
-    ## ── Column specification ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    ## ── Column specification ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     ## Delimiter: ";"
     ## chr (7): av, author, d_type, jod_type, stim_type, att_type, unique_id
     ## dbl (9): h, d, year, manuscript, experiment, vpnr, value, stim_id, id
@@ -34,7 +34,7 @@ w <- read_csv2("winkler.csv")
     ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 
 ``` r
-# uniqe exp id for mixed model
+# unique exp id for mixed model
 w$exp_id <- paste(w$manuscript, w$experiment)
 ```
 
@@ -53,8 +53,7 @@ summary(mdl)
 ```
 
     ## Linear mixed model fit by REML ['lmerMod']
-    ## Formula: value ~ h + h:stim_type + h:att_type + h:stim_type:att_type +  
-    ##     d + d:att_type + d:stim_type + d:stim_type:att_type + (1 +  
+    ## Formula: value ~ h + h:stim_type + h:att_type + h:stim_type:att_type +      d + d:att_type + d:stim_type + d:stim_type:att_type + (1 +  
     ##     h + d | exp_id/vpnr)
     ##    Data: w
     ##  Subset: w$av == "jof"
@@ -105,8 +104,7 @@ summary(mdl)
 r.squaredGLMM(mdl)
 ```
 
-    ## Warning in vpnr:exp_id: numerical expression has 4329 elements: only the first
-    ## used
+    ## Warning in vpnr:exp_id: numerical expression has 4329 elements: only the first used
 
     ##            R2m       R2c
     ## [1,] 0.2417397 0.6810632
@@ -561,8 +559,7 @@ summary(mdl)
 ```
 
     ## Linear mixed model fit by REML ['lmerMod']
-    ## Formula: value ~ h + h:stim_type + h:att_type + h:stim_type:att_type +  
-    ##     d + d:att_type + d:stim_type + d:stim_type:att_type + (1 +  
+    ## Formula: value ~ h + h:stim_type + h:att_type + h:stim_type:att_type +      d + d:att_type + d:stim_type + d:stim_type:att_type + (1 +  
     ##     h + d | exp_id/vpnr)
     ##    Data: w
     ##  Subset: w$av == "jod"
@@ -611,8 +608,7 @@ summary(mdl)
 r.squaredGLMM(mdl)
 ```
 
-    ## Warning in vpnr:exp_id: numerical expression has 4329 elements: only the first
-    ## used
+    ## Warning in vpnr:exp_id: numerical expression has 4329 elements: only the first used
 
     ##            R2m       R2c
     ## [1,] 0.1588739 0.6559433
@@ -1150,7 +1146,7 @@ coef(lm)
 ``` r
 boot <- bootstrap(b, 1000)
 
-purrr:::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[2], boot$f_se[2], x, y))
+purrr::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[2], boot$f_se[2], x, y))
 ```
 
     ## [[1]]
@@ -1182,7 +1178,7 @@ purrr:::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[2], boot$
     ## 1.2125590 0.2252985
 
 ``` r
-purrr:::map2(boot$d_mean, boot$d_se, \(x, y) compare_betas(boot$d_mean[4], boot$d_se[4], x, y))
+purrr::map2(boot$d_mean, boot$d_se, \(x, y) compare_betas(boot$d_mean[4], boot$d_se[4], x, y))
 ```
 
     ## [[1]]
@@ -1237,7 +1233,6 @@ boot_jod
 
 ``` r
 print(xtable(boot, type = "latex", digits = 3), file = "betsch_jod.tex")
-#system("cp betsch_jod.tex ~/2020/paper2_diss/tables/")
 ```
 
 ## JOF
@@ -1272,16 +1267,15 @@ boot
 ```
 
     ## # A tibble: 7 × 9
-    ##   condition2  f_mean  d_mean   f_se    d_se `f_95%-LL` `d_95%-LL` `f_95%-UL`
-    ##   <chr>        <dbl>   <dbl>  <dbl>   <dbl>      <dbl>      <dbl>      <dbl>
-    ## 1 event        0.759 0.0320  0.253  0.0800       0.269   -0.133        1.25 
-    ## 2 event_instr  0.679 0.0113  0.176  0.0635       0.329   -0.117        1.01 
-    ## 3 pic          0.449 0.00929 0.0236 0.00874      0.405   -0.00740      0.495
-    ## 4 pic-context  0.476 0.0347  0.0241 0.00911      0.433    0.0169       0.525
-    ## 5 run          0.459 0.0298  0.131  0.0374       0.201   -0.0500       0.717
-    ## 6 run_instr    0.326 0.0366  0.111  0.0347       0.109   -0.0286       0.556
-    ## 7 words        0.353 0.0232  0.0272 0.00967      0.300    0.00491      0.406
-    ## # ℹ 1 more variable: `d_95%-UL` <dbl>
+    ##   condition2  f_mean  d_mean   f_se    d_se `f_95%-LL` `d_95%-LL` `f_95%-UL` `d_95%-UL`
+    ##   <chr>        <dbl>   <dbl>  <dbl>   <dbl>      <dbl>      <dbl>      <dbl>      <dbl>
+    ## 1 event        0.759 0.0320  0.253  0.0800       0.269   -0.133        1.25      0.181 
+    ## 2 event_instr  0.679 0.0113  0.176  0.0635       0.329   -0.117        1.01      0.132 
+    ## 3 pic          0.449 0.00929 0.0236 0.00874      0.405   -0.00740      0.495     0.0268
+    ## 4 pic-context  0.476 0.0347  0.0241 0.00911      0.433    0.0169       0.525     0.0518
+    ## 5 run          0.459 0.0298  0.131  0.0374       0.201   -0.0500       0.717     0.101 
+    ## 6 run_instr    0.326 0.0366  0.111  0.0347       0.109   -0.0286       0.556     0.106 
+    ## 7 words        0.353 0.0232  0.0272 0.00967      0.300    0.00491      0.406     0.0425
 
 ``` r
 purrr:::map2(boot$f_mean, boot$f_se, \(x, y) compare_betas(boot$f_mean[1], boot$f_se[1], x, y))
@@ -1353,7 +1347,6 @@ boot <- boot %>%
     select(-f_se, -d_se)
 
 print(xtable(boot, type = "latex", digits = 3), file = "betsch_jof.tex")
-#system("cp betsch_jof.tex ~/2020/paper2_diss/tables/")
 
 boot_jof <- boot
 boot_jof
@@ -1537,8 +1530,7 @@ fac <- factor(all$condition)
 fac <- forcats::fct_reorder(fac, all$f_mean, .fun = mean)
 fac <- forcats::fct_recode(
   fac,
-  "event instruction" = "event_instr",
-  picture = "pic",
+  "picture" = "pic",
   "picture context" = "pic-context",
   "run instruction" = "run_instr",
   "event instruction" = "event_instr"
@@ -1558,7 +1550,7 @@ res <- Map(
 names(res) <- paste0(all$dv, ":", all$condition)
 res_df <- plyr::ldply(res, "data.frame")
 
-p_all <- plot_attention(res_df, base_theme = theme_bw())
+p_all <- plot_attention(res_df)
 
 p_all
 ```
